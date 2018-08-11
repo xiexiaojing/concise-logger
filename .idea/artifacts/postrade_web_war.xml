@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="war" name="postrade-web:war">
+    <output-path>$PROJECT_DIR$/target</output-path>
+    <root id="archive" name="postrade-web-1.0-SNAPSHOT.war">
+      <element id="artifact" artifact-name="postrade-web:war exploded" />
+    </root>
+  </artifact>
+</component>
