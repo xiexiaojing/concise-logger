@@ -1,14 +1,15 @@
 package com.brmayi.aspect;
 
-import com.google.common.collect.Sets;
-import com.netflix.config.ConfigurationManager;
+import com.brmayi.annotation.LogNotPrintAnnotation;
 import com.brmayi.annotation.LogPrintAnnotation;
 import com.brmayi.pojo.BaseDTO;
-import com.brmayi.util.JacksonUtil;
+import com.google.common.collect.Sets;
+import com.netflix.config.ConfigurationManager;
 import org.apache.commons.lang3.StringUtils;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
+import org.aspectj.lang.reflect.MethodSignature;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -17,6 +18,7 @@ import org.springframework.core.annotation.Order;
 
 import javax.servlet.ServletRequest;
 import javax.servlet.ServletResponse;
+import java.lang.reflect.Method;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -27,40 +29,66 @@ public class LogPrintAspect {
     private static Logger LOGGER = LoggerFactory.getLogger(LogPrintAspect.class);
     private static final Pattern pattern = Pattern.compile("execution\\([\\w\\$]+\\s+([\\w\\$]+\\.)+([\\w\\$]+)\\([\\w\\$\\,]*\\)\\)");
 
-    //想改配置需要重启服务
     private static int LOGGER_ANNOTATION_LEVEL = ConfigurationManager.getConfigInstance().getInt("logger_annotation_level", LocationAwareLogger.INFO_INT);
+    private static int LOGGER_MAPPER_LEVEL = ConfigurationManager.getConfigInstance().getInt("logger_mapper_level", LocationAwareLogger.INFO_INT);
     private static int LOGGER_DAO_LEVEL = ConfigurationManager.getConfigInstance().getInt("logger_dao_level", LocationAwareLogger.DEBUG_INT);
+    private static int LOGGER_MANAGER_LEVEL = ConfigurationManager.getConfigInstance().getInt("logger_manager_level", LocationAwareLogger.INFO_INT);
     private static int LOGGER_API_LEVEL = ConfigurationManager.getConfigInstance().getInt("logger_api_level", LocationAwareLogger.INFO_INT);
+    private static int LOGGER_CONTROLLER_LEVEL = ConfigurationManager.getConfigInstance().getInt("logger_controller_level", LocationAwareLogger.INFO_INT);
+    private static int LOGGER_TASK_LEVEL = ConfigurationManager.getConfigInstance().getInt("logger_task_level", LocationAwareLogger.INFO_INT);
     private static int LOGGER_SERVICE_LEVEL = ConfigurationManager.getConfigInstance().getInt("logger_service_level", LocationAwareLogger.INFO_INT);
     private static int LOGGER_QUEUE_LEVEL = ConfigurationManager.getConfigInstance().getInt("logger_queue_level", LocationAwareLogger.INFO_INT);
 
+
+    public LogPrintAspect() {
+        LOGGER.info("------------------LogPrintAspect---start------------------------");
+    }
     /**
      * 执行dao的日志的切面
-     * 只会匹配com.meituan.pay.*.dao下的所有类中的所有方法
+     * 只会匹配com.meituan.hulk.*.dao下的所有类中的所有方法
      *
      * @param pjp 连接点
      * @return 方法返回对象
      * @throws Throwable
      */
-    @Around(value = "execution(public * com.brmayi..*.dao.*.*(..))", argNames = "pjp")
+    @Around(value = "execution(* *.dao..*.*(..))", argNames = "pjp")
     public Object printDaoLog(final ProceedingJoinPoint pjp) throws Throwable {
-        return printLog(pjp, null, LOGGER_ANNOTATION_LEVEL);
+        return printLog(pjp, null, LOGGER_DAO_LEVEL);
     }
 
-    @Around(value = "execution(public * com.brmayi..*.service.*.*(..))", argNames = "pjp")
+    @Around(value = "execution(* *.service..*.*(..))", argNames = "pjp")
     public Object printServiceLog(final ProceedingJoinPoint pjp) throws Throwable {
         return printLog(pjp, null, LOGGER_SERVICE_LEVEL);
     }
 
+    @Around(value = "execution(* *..controller..*.*(..))", argNames = "pjp")
+    public Object printControllerLog(final ProceedingJoinPoint pjp) throws Throwable {
+        return printLog(pjp, null, LOGGER_CONTROLLER_LEVEL);
+    }
 
-    @Around(value = "execution(public * com.brmayi..*.api.*.*(..))", argNames = "pjp")
+    @Around(value = "execution(* *..api..*.*(..))", argNames = "pjp")
     public Object printApiLog(final ProceedingJoinPoint pjp) throws Throwable {
         return printLog(pjp, null, LOGGER_API_LEVEL);
     }
 
-    @Around(value = "execution(public * com.brmayi..*.queue.*.*(..))", argNames = "pjp")
+    @Around(value = "execution(* *..mapper..*.*(..))", argNames = "pjp")
+    public Object printMapperLog(final ProceedingJoinPoint pjp) throws Throwable {
+        return printLog(pjp, null, LOGGER_MAPPER_LEVEL);
+    }
+
+    @Around(value = "execution(* *..task..*.*(..))", argNames = "pjp")
+    public Object printTaskLog(final ProceedingJoinPoint pjp) throws Throwable {
+        return printLog(pjp, null, LOGGER_TASK_LEVEL);
+    }
+
+    @Around(value = "execution(* *..queue..*.*(..))", argNames = "pjp")
     public Object printQueueLog(final ProceedingJoinPoint pjp) throws Throwable {
         return printLog(pjp, null, LOGGER_QUEUE_LEVEL);
+    }
+
+    @Around(value = "execution(* *..manager..*.*(..))", argNames = "pjp")
+    public Object printManagerLog(final ProceedingJoinPoint pjp) throws Throwable {
+        return printLog(pjp, null, LOGGER_MANAGER_LEVEL);
     }
 
     /**
@@ -73,17 +101,25 @@ public class LogPrintAspect {
      */
     @Around(value = "(execution(* *(..)) && @annotation(logPrintAnnotation))", argNames = "pjp,logPrintAnnotation")
     public Object printLogForAnnotation(final ProceedingJoinPoint pjp, LogPrintAnnotation logPrintAnnotation) throws Throwable {
-       return printLog(pjp, logPrintAnnotation, LOGGER_ANNOTATION_LEVEL);
+        return printLog(pjp, logPrintAnnotation, LOGGER_ANNOTATION_LEVEL);
     }
 
     private Object printLog(final ProceedingJoinPoint pjp, LogPrintAnnotation logPrintAnnotation, int loggerLevel) throws Throwable {
+        MethodSignature joinPointObject = (MethodSignature) pjp.getSignature();
+        Method method = joinPointObject.getMethod();
+
+        boolean notPrint = method.isAnnotationPresent(LogNotPrintAnnotation.class);
+        if(notPrint) {
+            return null;
+        }
+
         Object business = null;
         String logPrefix = getPrintPrefixLog(pjp);
         long start = System.currentTimeMillis();
         try {
             //创建配置的排除参数序列
             Set<Integer> set = Sets.newHashSet();
-            if (logPrintAnnotation!=null && logPrintAnnotation.exceptParamIndex() != null && logPrintAnnotation.exceptParamIndex().length > 0) {
+            if (logPrintAnnotation != null && logPrintAnnotation.exceptParamIndex() != null && logPrintAnnotation.exceptParamIndex().length > 0) {
                 for (Integer index : logPrintAnnotation.exceptParamIndex()) {
                     set.add(index);
                 }
@@ -138,6 +174,7 @@ public class LogPrintAspect {
         String msg = null;
         if (params != null && params.length > 0) {
             StringBuilder str = new StringBuilder();
+            String remoteAddr = "";
             for (int i = 0; i < params.length; i++) {
                 //如果是排除的参数，跳过打印
                 if (set != null && !set.isEmpty() && set.contains(i)) {
@@ -148,12 +185,15 @@ public class LogPrintAspect {
                     MDC.put("reqId", ((BaseDTO) param).getReqId());
                 }
                 if (param != null && !(param instanceof ServletRequest || param instanceof ServletResponse)) {
-                    str.append(JacksonUtil.toJson(param));
+                    str.append(param.toString());
+                }
+                if (param != null && (param instanceof ServletRequest)) {
+                    remoteAddr = ((ServletRequest) param).getRemoteAddr();
                 }
             }
-            msg = logPrefix + "-[@@服务开始@@],入参:[" + str.toString() + "]";
+            msg = logPrefix + "-" + remoteAddr + "-[@@开始@@],入参:[" + str.toString() + "]";
         } else {
-            msg = logPrefix + "-[@@服务开始@@]";
+            msg = logPrefix + "-[@@开始@@]";
         }
         printLogEnum(LOGGER, levelint, msg);
     }
@@ -177,7 +217,7 @@ public class LogPrintAspect {
                 }
                 Object param = params[i];
                 if (param != null && !(param instanceof ServletRequest || param instanceof ServletResponse)) {
-                    str.append(JacksonUtil.toJson(param));
+                    str.append(param.toString());
                 }
             }
             data = str.toString();
@@ -185,25 +225,25 @@ public class LogPrintAspect {
         String msg = null;
         long cost = System.currentTimeMillis() - start;
         if (business != null) {
-            msg = logPrefix + "-[@@服务结束@@],入参:[" + data + "],结果:[" + JacksonUtil.toJson(business) + "],总耗时:[" + cost + "]";
+            msg = logPrefix + "-[@@结束@@],入参:[" + data + "],结果:[" + business + "],总耗时:[" + cost + "]";
         } else {
-            msg = logPrefix + "-[@@服务结束@@],入参:[" + data + "],总耗时:[" + cost + "]";
+            msg = logPrefix + "-[@@结束@@],入参:[" + data + "],总耗时:[" + cost + "]";
         }
         printLogEnum(LOGGER, levelint, msg);
     }
 
     private static void printLogEnum(Logger logger, Integer levelInt, String info) {
-        switch(levelInt.intValue()) {
-            case 0:
+        switch (levelInt.intValue()) {
+            case LocationAwareLogger.TRACE_INT:
                 logger.trace(info);
                 break;
-            case 10:
+            case LocationAwareLogger.DEBUG_INT:
                 logger.debug(info);
                 break;
-            case 30:
+            case LocationAwareLogger.WARN_INT:
                 logger.warn(info);
                 break;
-            case 40:
+            case LocationAwareLogger.ERROR_INT:
                 logger.error(info);
                 break;
             default:
