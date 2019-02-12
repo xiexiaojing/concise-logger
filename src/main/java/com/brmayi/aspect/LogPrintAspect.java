@@ -107,11 +107,7 @@ public class LogPrintAspect {
     private Object printLog(final ProceedingJoinPoint pjp, LogPrintAnnotation logPrintAnnotation, int loggerLevel) throws Throwable {
         MethodSignature joinPointObject = (MethodSignature) pjp.getSignature();
         Method method = joinPointObject.getMethod();
-
-        boolean notPrint = method.isAnnotationPresent(LogNotPrintAnnotation.class);
-        if(notPrint) {
-            return null;
-        }
+        boolean isPrint = !method.isAnnotationPresent(LogNotPrintAnnotation.class);
 
         Object business = null;
         String logPrefix = getPrintPrefixLog(pjp);
@@ -125,11 +121,11 @@ public class LogPrintAspect {
                 }
             }
 
-            printStartLog(pjp, logPrefix, set, loggerLevel);
+            if(isPrint) printStartLog(pjp, logPrefix, set, loggerLevel);
             //执行方法
             business = pjp.proceed();
         } finally {
-            printEndLog(pjp, null, business, logPrefix, loggerLevel, start);
+            if(isPrint) printEndLog(pjp, null, business, logPrefix, loggerLevel, start);
         }
         return business;
     }
