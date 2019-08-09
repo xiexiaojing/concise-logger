@@ -218,7 +218,7 @@ public class LogPrintAspect {
             }
             data = str.toString();
         }
-        String msg = null;
+        String msg;
         long cost = System.currentTimeMillis() - start;
         if (business != null) {
             msg = logPrefix + "-[@@结束@@],入参:[" + data + "],结果:[" + business + "],总耗时:[" + cost + "]";
