@@ -10,7 +10,7 @@
     <!-- Define dependency for all ipam modules -->
     <properties>
         <java.version>1.8</java.version>
-        <jackson.version>2.10.1</jackson.version>
+        <jackson.version>2.12.6.1</jackson.version>
         <spring.version>4.3.11.RELEASE</spring.version>
         <inf.utils>1.0.11-SNAPSHOT</inf.utils>
         <guava.version>18.0</guava.version>
